@@ -17,10 +17,13 @@ def get_record():
     while(True):
         try:
             records_from_generator = next(gen)
+            if rest != '':
+                records_from_generator = rest + records_from_generator
+                rest = ''
             while records_from_generator[-1] != ';':
                 rest += records_from_generator[-1]
-                del records_from_generator[-1]
-
+                records_from_generator = records_from_generator[:-1]
+            rest = rest[::-1]
             list = records_from_generator.split(';')
             for r in list:
                 yield r
@@ -45,7 +48,8 @@ file.close()
 #records generated, time to sort
 
 for r in get_record():
-    print(r)
+    if r != '':
+        print(r)
 
 #get 2kB to generator and split it to create ready records
 #care for last record, since it probably won't be complete
