@@ -5,10 +5,10 @@ import timeit
 import sys
 
 NUMBER_OF_RECORDS = 10000 #number of students
-BYTES_TO_TAKE = 2048 # normally 4kB=4096
+BYTES_TO_TAKE = 4096 # normally 4kB=4096
 NUMBER_OF_DISK_SAVES = 0
 NUMBER_OF_SORTING_PHASES = 0
-NUMBER_OF_DISK_READS = -1
+NUMBER_OF_DISK_READS = 0
 GROWING = True
 
 def get_some_records(file):
@@ -35,30 +35,14 @@ def get_record(file):
                 if records_from_generator == '':
                     break
             rest = rest[::-1] # reverse string
-            list = records_from_generator.split(';')
-            for r in list:
+            #f = filter(None, records_from_generator.split(';'))
+            ll = records_from_generator.split(';')
+            #ll = list(f)
+            pass
+            for r in ll:
                 yield r
         except:
             return
-
-
-# def get_some_records_from_file(file):
-#     rest = '' # rest from the records, to be added on the start of the next run
-#     with open(file, "r") as f:
-#         records = f.read(BYTES_TO_TAKE)
-#         while records:
-#             if rest != '':
-#                 records = rest + records
-#                 rest = ''
-#             while records[-1] != ';':
-#                 rest += records[-1]
-#                 records = records[:-1] # delete last char
-#                 if records == '':
-#                     break
-#             rest = rest[::-1] # reverse string
-#             list = records.split(';') if records else []
-#             yield list
-#             records = f.read(BYTES_TO_TAKE)
 
 def write_records_to_file(file_name, records_list):
     if records_list:
@@ -82,19 +66,29 @@ def add_record_to_tape(tape, record):
     global NUMBER_OF_DISK_SAVES
     tape.append(record)
     if sys.getsizeof(tape1 + tape2 + tape3) >= BYTES_TO_TAKE * 0.97:
-        NUMBER_OF_DISK_SAVES += 3
         if tapes_swapped:
-            write_records_to_file(tapes[0], tape2)
-            write_records_to_file(tapes[1], tape1)
-            tape1.clear()
-            tape2.clear()
+            if tape2:
+                write_records_to_file(tapes[0], tape2)
+                tape2.clear()
+                NUMBER_OF_DISK_SAVES += 1
+            if tape1:
+                write_records_to_file(tapes[1], tape1)
+                tape1.clear()
+                NUMBER_OF_DISK_SAVES += 1
+
         else:
-            write_records_to_file(tapes[0], tape1)
-            write_records_to_file(tapes[1], tape2)
-            tape1.clear()
-            tape2.clear()
-        write_records_to_file(tapes[2], tape3)
-        tape3.clear()
+            if tape1:
+                write_records_to_file(tapes[0], tape1)
+                tape1.clear()
+                NUMBER_OF_DISK_SAVES += 1
+            if tape2:
+                write_records_to_file(tapes[1], tape2)
+                tape2.clear()
+                NUMBER_OF_DISK_SAVES += 1
+        if tape3:
+            write_records_to_file(tapes[2], tape3)
+            tape3.clear()
+            NUMBER_OF_DISK_SAVES += 1
 
 tapes = ["tape1.txt", "tape2.txt", "tape3.txt"]
 # clear tapes
@@ -102,26 +96,10 @@ for t in tapes:
     with open(t, "w") as _:
         pass
 
-# change later to binary files .code() and .decode()
 with open(tapes[2], "w") as f:
     while NUMBER_OF_RECORDS > 0:
         create_record_to_file()
         NUMBER_OF_RECORDS -= 1
-
-# DEBUGGER FOR EXACT RECORDS
-# with open("backup.txt", "r+") as b:
-#     with open(tapes[2], "r+") as w:
-#         # b.write(w.read())
-#         w.write(b.read())
-#check sums
-# i = 1
-# with open("tape3.txt") as tp:
-#     list = tp.read().split(';')
-#     for r in list:
-#         if r != '':
-#             print(f'{i}. {get_record_value(r)}')
-#             i += 1
-
 
 # records generated, time to sort
 
@@ -176,13 +154,8 @@ while sorting:
     rec1, rec2 = '', ''
     tape1_gen = get_record(tapes[0])
     tape2_gen = get_record(tapes[1])
-    xd = 0
     sorting = False # CHANGE TO True IF NOT SORTED (if more than 2 runs to be merged)
     while True:
-        if NUMBER_OF_SORTING_PHASES == 1:
-            xd += 1
-            if xd == 10:
-                pass
         # while insted of if because of empty strings because of .split()
         # take new record, only if previous was already used
         while rec1 == '':
@@ -191,8 +164,10 @@ while sorting:
             rec2 = next(tape2_gen, -1)
 
         if rec1 == -1 and rec2 == -1:
+            #NUMBER_OF_DISK_READS -= 1
             break
         elif rec1 == -1:
+            #NUMBER_OF_DISK_READS -= 1
             add_record_to_tape(tape3, rec2)
             if get_record_value(rec2) < lval:
                 sorting = True
@@ -200,6 +175,7 @@ while sorting:
             rec2 = ''
             continue
         elif rec2 == -1:
+            #NUMBER_OF_DISK_READS -= 1
             add_record_to_tape(tape3, rec1)
             if get_record_value(rec1) < lval:
                 sorting = True
@@ -250,31 +226,3 @@ print(f'Time::::::{stop-start}')
 print(f'Disk Saves::::::{NUMBER_OF_DISK_SAVES}')
 print(f'Disk Reads::::::{NUMBER_OF_DISK_READS}')
 print(f'Sorting phases::::::{NUMBER_OF_SORTING_PHASES}')
-
-#check sums
-i = 1
-old_r = 0
-err = 0
-with open("tape3.txt") as tp:
-    list = tp.read().split(';')
-    for r in list:
-        if r != '':
-            vaa = get_record_value(r)
-            #print(f'{i}. {vaa}')
-            if vaa < old_r:
-                print('           XXXXXX WRONG ERROR !')
-                err = 1
-            old_r = vaa
-            i += 1
-pass
-
-#get 2kB to generator and split it to create ready records
-#care for last record, since it probably won't be complete
-#dispose records to tapes 1 and 2
-#merge to 3 and 4
-#merge to 1 and 2
-#....
-#check if finished
-
-
-#split to split records
