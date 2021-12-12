@@ -1,15 +1,16 @@
 # project aims to sort data bases with big number of records using Natural Merge (2+1)
 
 import random
-import timeit
 import sys
+import os
 
-NUMBER_OF_RECORDS = 10000 #number of students
+NUMBER_OF_RECORDS = 12 #number of students
 BYTES_TO_TAKE = 4096 # normally 4kB=4096
 NUMBER_OF_DISK_SAVES = 0
 NUMBER_OF_SORTING_PHASES = 0
 NUMBER_OF_DISK_READS = 0
-GROWING = True
+SHOW_FILE_AFTER_EVERY_PHASE = False
+READ_RECORDS_FROM_FILE = True
 
 def get_some_records(file):
     with open(file, "r") as f:
@@ -35,11 +36,9 @@ def get_record(file):
                 if records_from_generator == '':
                     break
             rest = rest[::-1] # reverse string
-            #f = filter(None, records_from_generator.split(';'))
-            ll = records_from_generator.split(';')
-            #ll = list(f)
+            list = records_from_generator.split(';')
             pass
-            for r in ll:
+            for r in list:
                 yield r
         except:
             return
@@ -53,19 +52,22 @@ def draw_grade():
     return random.choice(['2.0', '3.0', '3.5', '4.0', '4.5', '5.0'])
 
 def create_record_to_file():
-    f.write(str(NUMBER_OF_RECORDS)+'/'+draw_grade()+draw_grade()+draw_grade()+';')
+    f.write(str(n)+'/'+draw_grade()+draw_grade()+draw_grade()+';')
+
+def show_file():
+    osCommandString = f"notepad.exe {tapes[2]}"
+    os.system(osCommandString)
 
 def get_record_value(record):
     i = record.find('/')
-    value = (int)(record[i+1]) + (int)(record[i+3])/10 + (int)(record[i+4])\
-            + (int)(record[i+6])/10 + (int)(record[i+7]) + (int)(record[i+9])/10
+    value = (int)(record[i+1]) + (int)(record[i+3])/10 + (int)(record[i+4]) + (int)(record[i+6])/10 + (int)(record[i+7]) + (int)(record[i+9])/10
     return value
 
 # can be detached to save tape3 and to save tape1 and 2
 def add_record_to_tape(tape, record):
     global NUMBER_OF_DISK_SAVES
     tape.append(record)
-    if sys.getsizeof(tape1 + tape2 + tape3) >= BYTES_TO_TAKE * 0.97:
+    if sys.getsizeof(tape1 + tape2 + tape3) >= BYTES_TO_TAKE:
         if tapes_swapped:
             if tape2:
                 write_records_to_file(tapes[0], tape2)
@@ -97,15 +99,40 @@ for t in tapes:
         pass
 
 with open(tapes[2], "w") as f:
-    while NUMBER_OF_RECORDS > 0:
-        create_record_to_file()
-        NUMBER_OF_RECORDS -= 1
+    if READ_RECORDS_FROM_FILE:
+        with open("backup_records.txt", "r") as b:
+            with open(tapes[2], "w") as w:
+                w.write(b.read())
+    else:
+        n = NUMBER_OF_RECORDS
+        while n > 0:
+            create_record_to_file()
+            n -= 1
+
+q = "Do you want to add record manualy? (type 'y' or 'n'): "
+q2 = "Do you want to add another record manualy? (type 'y' or 'n'): "
+answer = 0
+while True:
+    while True:
+        answer = input(q)
+        if answer == 'y' or answer == 'n':
+            break
+    if answer == 'y':
+        print(f"Index is just a student number (should be higher than{NUMBER_OF_RECORDS},"
+              f" scores need to be given in exact format, examples: '2.0', '3.5', '5.0'")
+        with open(tapes[2], "a") as f:
+            f.write(input("Index: ")+'/'+input("First score: ")+input("Second score: ")+input("Third score: ")+';')
+        q = q2
+    else:
+        break
+
 
 # records generated, time to sort
 
-start = timeit.default_timer()
 tape1, tape2, tape3 = [], [], []
 sorting = True
+
+show_file() # show file before sort
 
 # SORTING
 while sorting:
@@ -164,10 +191,8 @@ while sorting:
             rec2 = next(tape2_gen, -1)
 
         if rec1 == -1 and rec2 == -1:
-            #NUMBER_OF_DISK_READS -= 1
             break
         elif rec1 == -1:
-            #NUMBER_OF_DISK_READS -= 1
             add_record_to_tape(tape3, rec2)
             if get_record_value(rec2) < lval:
                 sorting = True
@@ -175,7 +200,6 @@ while sorting:
             rec2 = ''
             continue
         elif rec2 == -1:
-            #NUMBER_OF_DISK_READS -= 1
             add_record_to_tape(tape3, rec1)
             if get_record_value(rec1) < lval:
                 sorting = True
@@ -221,8 +245,11 @@ while sorting:
     tape3.clear()
     NUMBER_OF_SORTING_PHASES += 1
 
-stop = timeit.default_timer()
-print(f'Time::::::{stop-start}')
+    if SHOW_FILE_AFTER_EVERY_PHASE:
+        show_file()
+
+show_file() # show file after sort
+
 print(f'Disk Saves::::::{NUMBER_OF_DISK_SAVES}')
 print(f'Disk Reads::::::{NUMBER_OF_DISK_READS}')
 print(f'Sorting phases::::::{NUMBER_OF_SORTING_PHASES}')
